@@ -15,7 +15,7 @@ mt5_lock = threading.Lock()
 MT5_TERMINAL_PATH = r"C:\Users\user\Desktop\NolimitzMT5Verifier\terminal64.exe"
 
 # Add your own secret here and use same secret from backend
-VERIFIER_SECRET = "nolimitz_super_secret_123"
+VERIFIER_SECRET = "nolimitz_mt5_secret_2026"
 
 class MT5VerifyRequest(BaseModel):
     login: str
@@ -162,12 +162,14 @@ def verify_mt5_credentials_direct(
         return result
 
 
+from fastapi import FastAPI, HTTPException, Header
+
 @app.post("/verify-mt5")
 def verify_mt5(
     data: MT5VerifyRequest,
-    x_verifier_secret: str | None = Header(default=None),
+    x_api_key: str = Header(None),
 ):
-    if x_verifier_secret != VERIFIER_SECRET:
+    if x_api_key != VERIFIER_SECRET:
         raise HTTPException(status_code=403, detail="Forbidden")
 
     try:
