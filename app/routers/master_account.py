@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.auth import decode_access_token
 from app.database import get_db
 from app.models import Admin
+from app.routers.admin import get_current_approved_admin
 
 router = APIRouter(prefix="/admin/master-account", tags=["Master Account"])
 
