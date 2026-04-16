@@ -10,6 +10,7 @@ class MetaApiService:
         token = os.getenv("METAAPI_TOKEN")
         if not token:
             raise RuntimeError("METAAPI_TOKEN is missing")
+
         self.api = MetaApi(token)
 
     async def create_mt5_account(
@@ -20,9 +21,6 @@ class MetaApiService:
         name: str,
         platform: str = "mt5",
     ):
-        """
-        Create a MetaApi cloud account for a client MT5 login.
-        """
         account = await self.api.metatrader_account_api.create_account({
             "name": name,
             "type": "cloud-g2",
@@ -42,9 +40,6 @@ class MetaApiService:
         account,
         connect_timeout_seconds: int = 180,
     ):
-        """
-        Deploy MetaApi account and wait until connected.
-        """
         await account.deploy()
         await asyncio.wait_for(
             account.wait_connected(),
@@ -53,9 +48,6 @@ class MetaApiService:
         return account
 
     async def undeploy_account(self, account_id: str):
-        """
-        Optional helper if later you want to disconnect/remove old linked account.
-        """
         account = await self.get_account(account_id)
         await account.undeploy()
         return True
@@ -105,9 +97,6 @@ class MetaApiService:
             return None
 
     async def find_broker_symbol(self, account_id: str, requested_symbol: str) -> str:
-        """
-        Match requested generic symbol to broker-specific symbol on MetaApi account.
-        """
         requested = requested_symbol.upper().strip()
         symbols = await self.get_symbols(account_id)
 

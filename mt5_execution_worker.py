@@ -54,21 +54,6 @@ def backend_claim_pending_executions():
 
 
 def backend_get_execution_account(execution_id: int):
-    """
-    IMPORTANT:
-    This endpoint must now return metaapi_account_id instead of decrypted MT5 password.
-    Expected response shape:
-    {
-        "execution_id": ...,
-        "license_id": ...,
-        "license_key": "...",
-        "mt_login": "...",
-        "mt_server": "...",
-        "metaapi_account_id": "...",
-        "is_active": true,
-        "is_verified": true
-    }
-    """
     res = requests.get(
         f"{BACKEND_URL}/copier/executions/{execution_id}/account",
         timeout=30,
@@ -190,11 +175,12 @@ def backend_mark_ticket_map_closed(
 # =========================
 # METAAPI HELPERS
 # =========================
-metaapi_service = MetaApiService()
-
-
 def run_async(coro):
     return asyncio.run(coro)
+
+
+def get_metaapi_service() -> MetaApiService:
+    return MetaApiService()
 
 
 def require_metaapi_account_id(account: dict) -> str:
@@ -206,7 +192,7 @@ def require_metaapi_account_id(account: dict) -> str:
 
 def count_open_positions_for_symbol(account: dict, broker_symbol: str) -> int:
     account_id = require_metaapi_account_id(account)
-    positions = run_async(metaapi_service.get_positions(account_id))
+    positions = run_async(get_metaapi_service().get_positions(account_id))
     if not positions:
         return 0
 
@@ -220,7 +206,7 @@ def count_open_positions_for_symbol(account: dict, broker_symbol: str) -> int:
 
 def mapped_ticket_still_open(account: dict, client_ticket: str) -> bool:
     account_id = require_metaapi_account_id(account)
-    position = run_async(metaapi_service.get_position(account_id, str(client_ticket)))
+    position = run_async(get_metaapi_service().get_position(account_id, str(client_ticket)))
     return bool(position)
 
 
@@ -242,7 +228,7 @@ def get_open_mapped_tickets_for_execution(account: dict, execution: dict) -> lis
         if not client_ticket:
             continue
 
-        position = run_async(metaapi_service.get_position(account_id, str(client_ticket)))
+        position = run_async(get_metaapi_service().get_position(account_id, str(client_ticket)))
         if position:
             alive_mappings.append(mapping)
 
@@ -250,9 +236,6 @@ def get_open_mapped_tickets_for_execution(account: dict, execution: dict) -> lis
 
 
 def mark_execution_as_manual_close_if_needed(account: dict, execution: dict) -> bool:
-    """
-    Returns True if this master ticket should be treated as manually closed by client.
-    """
     existing_maps = backend_get_ticket_maps_by_keys(
         license_id=execution["license_id"],
         ea_id=execution["ea_id"],
@@ -314,7 +297,7 @@ def execute_single_open_trade(execution: dict, account: dict) -> str:
     account_id = require_metaapi_account_id(account)
 
     requested_symbol = execution["symbol"]
-    symbol = run_async(metaapi_service.find_broker_symbol(account_id, requested_symbol))
+    symbol = run_async(get_metaapi_service().find_broker_symbol(account_id, requested_symbol))
 
     symbol_setting = get_symbol_setting_for_execution(account, execution)
     if not symbol_setting:
@@ -345,7 +328,7 @@ def execute_single_open_trade(execution: dict, account: dict) -> str:
 
     if action == "buy":
         result = run_async(
-            metaapi_service.create_market_buy_order(
+            get_metaapi_service().create_market_buy_order(
                 account_id=account_id,
                 symbol=symbol,
                 volume=lot_size,
@@ -357,7 +340,7 @@ def execute_single_open_trade(execution: dict, account: dict) -> str:
         )
     else:
         result = run_async(
-            metaapi_service.create_market_sell_order(
+            get_metaapi_service().create_market_sell_order(
                 account_id=account_id,
                 symbol=symbol,
                 volume=lot_size,
@@ -379,7 +362,7 @@ def execute_open_trade(execution: dict, account: dict) -> list[str]:
     account_id = require_metaapi_account_id(account)
 
     requested_symbol = execution["symbol"]
-    symbol = run_async(metaapi_service.find_broker_symbol(account_id, requested_symbol))
+    symbol = run_async(get_metaapi_service().find_broker_symbol(account_id, requested_symbol))
 
     symbol_setting = get_symbol_setting_for_execution(account, execution)
     if not symbol_setting:
@@ -433,14 +416,14 @@ def execute_modify_trade(execution: dict, account: dict) -> list[str]:
 
     for mapping in mappings:
         client_ticket = str(mapping["client_ticket"])
-        position = run_async(metaapi_service.get_position(account_id, client_ticket))
+        position = run_async(get_metaapi_service().get_position(account_id, client_ticket))
         if not position:
             print(f"[SKIP MODIFY] client trade {client_ticket} not found")
             continue
 
         try:
             run_async(
-                metaapi_service.modify_position(
+                get_metaapi_service().modify_position(
                     account_id=account_id,
                     position_id=client_ticket,
                     stop_loss=sl,
@@ -469,14 +452,14 @@ def execute_close_trade(execution: dict, account: dict) -> list[str]:
 
     for mapping in mappings:
         client_ticket = str(mapping["client_ticket"])
-        position = run_async(metaapi_service.get_position(account_id, client_ticket))
+        position = run_async(get_metaapi_service().get_position(account_id, client_ticket))
         if not position:
             print(f"[SKIP CLOSE] client trade {client_ticket} already closed manually")
             continue
 
         try:
             run_async(
-                metaapi_service.close_position(
+                get_metaapi_service().close_position(
                     account_id=account_id,
                     position_id=client_ticket,
                 )
