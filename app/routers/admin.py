@@ -472,7 +472,6 @@ def get_master_account_status(
         "is_connected": bool(account.is_connected),
         "ea_id": account.ea_id,
         "mt_login": account.mt_login,
-        "mt_password": account.mt_password,
         "mt_server": account.mt_server,
         "account_name": account.account_name,
         "broker_name": account.broker_name,

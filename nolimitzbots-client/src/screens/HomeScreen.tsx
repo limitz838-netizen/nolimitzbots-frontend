@@ -445,7 +445,12 @@ export default function HomeScreen({
       style={styles.container}
     >
       <SafeAreaView style={styles.safe}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+  contentContainerStyle={styles.content}
+  showsVerticalScrollIndicator={false}
+  scrollEnabled={false}
+  bounces={false}
+>
           {/* Top Row */}
           <View style={styles.topRow}>
             <View style={styles.companyPill}>
@@ -677,7 +682,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: {
     padding: Spacing.medium,
-    paddingBottom: 140,
+    paddingBottom: 40,
     gap: Spacing.medium,
   },
 
@@ -713,8 +718,22 @@ const styles = StyleSheet.create({
   },
 
   heroCard: { borderRadius: 28, overflow: "hidden", padding: 0 },
-  heroMediaWrap: { height: 470, borderRadius: 28, overflow: "hidden", position: "relative" },
-  heroImage: { position: "absolute", width: "100%", height: "100%" },
+  heroMediaWrap: {
+  height: 380,
+  borderRadius: 28,
+  overflow: "hidden",
+  position: "relative",
+  backgroundColor: "rgba(255,255,255,0.03)",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+heroImage: {
+  position: "absolute",
+  width: "100%",
+  height: "100%",
+  alignSelf: "center",
+},
   heroOverlay: { flex: 1, justifyContent: "space-between", padding: 18 },
 
   smartExecutionBadge: {
@@ -735,17 +754,25 @@ const styles = StyleSheet.create({
 
   heroBottomContent: { marginTop: "auto" },
   robotTitleGradient: {
-    fontSize: 50,
-    fontWeight: "800",
-    textAlign: "center",
-    letterSpacing: 1,
-  },
+  fontSize: 50,
+  fontWeight: "800",
+  textAlign: "center",
+  letterSpacing: 1.2,
+  textTransform: "uppercase",
+  fontStyle: "italic",
+  textShadowColor: "rgba(0,0,0,0.25)",
+  textShadowOffset: { width: 0, height: 2 },
+  textShadowRadius: 10,
+},
+
   robotSubtitleSmall: {
-    fontSize: 12,
-    color: "rgba(255,255,255,0.6)",
-    textAlign: "center",
-    marginTop: 4,
-  },
+  fontSize: 12,
+  color: "rgba(142, 141, 141, 0.72)",
+  textAlign: "center",
+  marginTop: 2,
+  letterSpacing: 0.4,
+  fontWeight: "600",
+},
 
   actionContainer: {
     flexDirection: "row",

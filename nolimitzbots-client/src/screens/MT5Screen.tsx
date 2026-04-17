@@ -8,6 +8,7 @@ import {
   Text,
   TextInput,
   View,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -53,20 +54,20 @@ export default function MT5Screen({
   const [mt5Status, setMT5Status] = useState<MT5StatusResponse | null>(null);
 
   const pollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isMountedRef = useRef(true);
 
-  const clearPoll = () => {
+  const clearPoll = useCallback(() => {
     if (pollTimeoutRef.current) {
       clearTimeout(pollTimeoutRef.current);
       pollTimeoutRef.current = null;
     }
-  };
+  }, []);
 
-  // Safe JSON parsing with logging
   const parseJsonSafely = async (response: Response): Promise<any> => {
     const text = await response.text();
-    console.log("MT5 API Response:", text.substring(0, 300)); // Prevent huge logs
+    console.log("MT5 API Response:", text.substring(0, 400));
 
-    if (!text || !text.trim()) return null;
+    if (!text?.trim()) return null;
 
     try {
       return JSON.parse(text);
@@ -76,9 +77,39 @@ export default function MT5Screen({
     }
   };
 
+  const getFriendlyMt5ErrorMessage = (raw?: string): string => {
+    const text = String(raw || "").toLowerCase();
+
+    if (!text) {
+      return "Unable to connect your MetaTrader 5 account. Please try again.";
+    }
+
+    if (text.includes("invalid account") || text.includes("authorization failed") || text.includes("wrong") || text.includes("incorrect")) {
+      return "Incorrect login, password, or server. Please double-check your credentials.";
+    }
+
+    if (text.includes("no connection") || text.includes("broker server") || text.includes("cannot connect")) {
+      return "Could not connect to the broker server. Please verify the server name and your internet connection.";
+    }
+
+    if (text.includes("timeout") || text.includes("took too long")) {
+      return "Connection timeout. Please check your internet and try again.";
+    }
+
+    if (text.includes("high reliability") || text.includes("agiliumtrade") || text.includes("temporarily unavailable")) {
+      return "MetaTrader 5 connection is temporarily unavailable. Please try again in a few minutes.";
+    }
+
+    if (text.includes("expired") || text.includes("deactivated")) {
+      return "Your license appears inactive or expired. Please contact support.";
+    }
+
+    return "Unable to connect your MT5 account. Please check your details or try again later.";
+  };
+
   const fetchMT5Status = useCallback(
     async (showLoading = true) => {
-      if (!licenseKey.trim()) {
+      if (!licenseKey?.trim() || !isMountedRef.current) {
         setStatusLoading(false);
         return;
       }
@@ -97,43 +128,35 @@ export default function MT5Screen({
         const data = await parseJsonSafely(response);
 
         if (!response.ok) {
-          const errorMsg = data?.message || data?.detail || "Failed to fetch MT5 status";
+          const errorMsg = data?.message || data?.detail || "Failed to fetch status";
           throw new Error(errorMsg);
         }
 
-        if (!data) throw new Error("Empty response from server");
+        if (!data) throw new Error("Empty response");
 
         setMT5Status(data);
 
-        // Auto-fill fields from backend
-        if (data.mt_login) setLogin(data.mt_login);
-        if (data.mt_server) setServer(data.mt_server);
+        // Auto-fill only if fields are empty (avoid overwriting user input)
+        if (data.mt_login && !login) setLogin(data.mt_login);
+        if (data.mt_server && !server) setServer(data.mt_server);
 
         const isConnected = data.status === "connected";
         onMT5StatusChange?.(isConnected);
 
         // Auto-poll during verification
-        if (data.status === "verifying" || data.status === "retry") {
-          pollTimeoutRef.current = setTimeout(() => {
-            fetchMT5Status(false);
-          }, 3000);
+        if ((data.status === "verifying" || data.status === "retry") && isMountedRef.current) {
+          pollTimeoutRef.current = setTimeout(() => fetchMT5Status(false), 3000);
         }
       } catch (error: any) {
         console.error("MT5 status error:", error);
         setMT5Status(null);
         onMT5StatusChange?.(false);
       } finally {
-        setStatusLoading(false);
+        if (isMountedRef.current) setStatusLoading(false);
       }
     },
-    [licenseKey, onMT5StatusChange]
+    [licenseKey, onMT5StatusChange, login, server, clearPoll]
   );
-
-  useEffect(() => {
-    fetchMT5Status();
-
-    return () => clearPoll();
-  }, [fetchMT5Status]);
 
   const handleSaveMT5 = async () => {
     if (!login.trim() || !password.trim() || !server.trim()) {
@@ -160,32 +183,33 @@ export default function MT5Screen({
       const data = await parseJsonSafely(response);
 
       if (!response.ok) {
-        const errorMsg = data?.message || data?.detail || "Failed to save MT5 account";
-        Alert.alert("Save Failed", errorMsg);
+        const rawError = data?.message || data?.detail || "Failed to save MT5 account";
+        const friendlyError = getFriendlyMt5ErrorMessage(rawError);
+
+        Alert.alert("Connection Failed", friendlyError);
         onMT5StatusChange?.(false);
         await fetchMT5Status(false);
         return;
       }
 
-      Alert.alert(
-        "Success",
-        data?.message || "MT5 credentials saved. Verification in progress..."
-      );
+      Alert.alert("Success", data?.message || "MT5 credentials saved. Verification in progress...");
 
-      setPassword(""); // Clear password for security
+      setPassword(""); // Clear for security
       await fetchMT5Status(false);
     } catch (error: any) {
       console.error("MT5 save error:", error);
-      Alert.alert(
-        "Connection Error",
-        error?.message || "Could not reach the server. Please check your connection."
-      );
+      const friendlyError = getFriendlyMt5ErrorMessage(error?.message);
+      Alert.alert("Connection Error", friendlyError);
     } finally {
       setLoading(false);
     }
   };
 
-  // Derived values
+  const handleRefresh = () => {
+    fetchMT5Status(true);
+  };
+
+  // Derived status
   const status = mt5Status?.status ?? "not_connected";
   const isConnected = status === "connected";
   const isVerifying = status === "verifying" || status === "retry";
@@ -207,6 +231,18 @@ export default function MT5Screen({
     ? "#FF6B6B"
     : "#FFB4B4";
 
+  const canEdit = !loading && !isVerifying;
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    fetchMT5Status();
+
+    return () => {
+      isMountedRef.current = false;
+      clearPoll();
+    };
+  }, [fetchMT5Status, clearPoll]);
+
   return (
     <LinearGradient
       colors={["#050B18", "#09162E", "#0D2A57"]}
@@ -216,9 +252,22 @@ export default function MT5Screen({
     >
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          {/* MT5 Login Form */}
+          {/* MT5 Form Card */}
           <GlassCard style={styles.formCard}>
-            <Text style={styles.title}>MT5 ACCOUNT DETAILS</Text>
+            <View style={styles.headerRow}>
+              <View style={styles.logoWrap}>
+                <Image
+                  source={{
+                    uri: "https://upload.wikimedia.org/wikipedia/commons/f/fa/MetaTrader_5_Clear_240px.png",
+                  }}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+              </View>
+              <Pressable onPress={handleRefresh} disabled={statusLoading || loading}>
+                <Ionicons name="refresh-circle" size={28} color="#7FDBFF" />
+              </Pressable>
+            </View>
 
             <View style={styles.fieldWrap}>
               <Text style={styles.label}>MT5 Login</Text>
@@ -229,7 +278,7 @@ export default function MT5Screen({
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 style={styles.input}
                 keyboardType="number-pad"
-                editable={!loading}
+                editable={canEdit}
                 autoCapitalize="none"
               />
             </View>
@@ -243,7 +292,7 @@ export default function MT5Screen({
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 style={styles.input}
                 secureTextEntry
-                editable={!loading}
+                editable={canEdit}
               />
             </View>
 
@@ -255,28 +304,30 @@ export default function MT5Screen({
                 placeholder="Exness-MT5Real11 or ICMarketsSC-MT5"
                 placeholderTextColor="rgba(255,255,255,0.4)"
                 style={styles.input}
-                editable={!loading}
+                editable={canEdit}
                 autoCapitalize="none"
               />
             </View>
 
             <Pressable
-              style={[styles.saveButton, loading && styles.saveButtonDisabled]}
+              style={[styles.saveButton, (loading || isVerifying) && styles.saveButtonDisabled]}
               onPress={handleSaveMT5}
-              disabled={loading}
+              disabled={loading || isVerifying}
             >
               {loading ? (
                 <ActivityIndicator color="#062B3D" size="small" />
               ) : (
                 <>
                   <Ionicons name="cloud-upload-outline" size={18} color="#062B3D" />
-                  <Text style={styles.saveButtonText}>Save & Verify Connection</Text>
+                  <Text style={styles.saveButtonText}>
+                    {isVerifying ? "Verifying..." : "Save & Verify Connection"}
+                  </Text>
                 </>
               )}
             </Pressable>
           </GlassCard>
 
-          {/* Connection Status Card */}
+          {/* Status Card */}
           <GlassCard style={styles.statusCard}>
             <Text style={styles.statusTitle}>CONNECTION STATUS</Text>
 
@@ -294,19 +345,11 @@ export default function MT5Screen({
                   </Text>
                 </View>
 
-                <View
-                  style={[
-                    styles.messageBox,
-                    isFailed && styles.messageBoxFailed,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      isFailed && styles.messageTextFailed,
-                    ]}
-                  >
-                    {mt5Status?.message || "No additional information available."}
+                <View style={[styles.messageBox, isFailed && styles.messageBoxFailed]}>
+                  <Text style={[styles.messageText, isFailed && styles.messageTextFailed]}>
+                    {isFailed
+                      ? getFriendlyMt5ErrorMessage(mt5Status?.message)
+                      : mt5Status?.message || "No additional information."}
                   </Text>
                 </View>
 
@@ -314,16 +357,12 @@ export default function MT5Screen({
                   <>
                     <View style={styles.statusRow}>
                       <Text style={styles.statusLabel}>Account Name</Text>
-                      <Text style={styles.statusValue}>
-                        {mt5Status.account_name || "—"}
-                      </Text>
+                      <Text style={styles.statusValue}>{mt5Status.account_name || "—"}</Text>
                     </View>
 
                     <View style={styles.statusRow}>
                       <Text style={styles.statusLabel}>Broker</Text>
-                      <Text style={styles.statusValue}>
-                        {mt5Status.broker_name || "—"}
-                      </Text>
+                      <Text style={styles.statusValue}>{mt5Status.broker_name || "—"}</Text>
                     </View>
 
                     <View style={styles.statusRow}>
@@ -337,6 +376,15 @@ export default function MT5Screen({
                       <View style={styles.statusRow}>
                         <Text style={styles.statusLabel}>Equity</Text>
                         <Text style={styles.statusValue}>${mt5Status.equity}</Text>
+                      </View>
+                    )}
+
+                    {mt5Status.last_verified_at && (
+                      <View style={styles.statusRow}>
+                        <Text style={styles.statusLabel}>Last Verified</Text>
+                        <Text style={styles.statusValue}>
+                          {new Date(mt5Status.last_verified_at).toLocaleString()}
+                        </Text>
                       </View>
                     )}
                   </>
@@ -364,14 +412,20 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: "rgba(255,255,255,0.06)",
     borderColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
   },
-  title: {
-    color: "#F6FBFF",
-    fontSize: 20,
-    fontWeight: "900",
-    textAlign: "center",
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 24,
-    letterSpacing: 0.5,
+  },
+  logoWrap: {
+    alignItems: "center",
+  },
+  logo: {
+    width: 140,
+    height: 80,
   },
 
   fieldWrap: { marginBottom: 20 },
@@ -415,6 +469,7 @@ const styles = StyleSheet.create({
     padding: 24,
     backgroundColor: "rgba(255,255,255,0.06)",
     borderColor: "rgba(255,255,255,0.12)",
+    borderWidth: 1,
   },
   statusTitle: {
     color: "#F6FBFF",
