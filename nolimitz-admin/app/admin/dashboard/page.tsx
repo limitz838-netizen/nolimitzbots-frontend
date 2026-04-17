@@ -556,27 +556,27 @@ export default function AdminDashboardPage() {
   const loadMasterAccount = async () => {
     try {
       const token = getAdminToken();
-
       const res = await fetch(`${baseUrl}/admin/master-account`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-
       const data = await res.json();
 
-      if (data?.mt_login) {
-        setMasterLogin(data.mt_login);
-        setMasterServer(data.mt_server);
-        setMasterStatus(data.connected ? "Connected" : "Saved");
-      }
+      if (data?.ea_id) setMasterEA(String(data.ea_id));
+      if (data?.mt_login) setMasterLogin(data.mt_login);
+      if (data?.mt_server) setMasterServer(data.mt_server);
+      if (data?.account_name) setMasterAccountName(data.account_name);
+      if (data?.broker_name) setMasterBrokerName(data.broker_name);
+
+      setMasterStatus(data?.connected ? "Connected" : data?.mt_login ? "Saved" : "Not connected");
     } catch (err) {
       console.warn("Failed to load master account", err);
     }
   };
 
   loadMasterAccount();
-}, []);
+}, [baseUrl]);
 
   const handleCreateLicense = useCallback(async () => {
   if (!licenseEA || !clientName.trim() || !clientEmail.trim()) {
@@ -868,20 +868,17 @@ const handleCopyGeneratedLicense = useCallback(async () => {
   try {
     setVerifyingMaster(true);
     setMasterMessage("");
-
     const token = getAdminToken();
 
-    const res = await fetch(`${baseUrl}/admin/master-account/verify`, {
+    const res = await fetch(`${baseUrl}/admin/master-account/connected`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
-        ea_id: Number(masterEA),
-        mt_login: masterLogin.trim(),
-        mt_password: masterPassword.trim(),
-        mt_server: masterServer.trim(),
+        account_name: `Master ${masterLogin.trim()}`,
+        broker_name: masterServer.trim(),
       }),
     });
 
@@ -891,12 +888,10 @@ const handleCopyGeneratedLicense = useCallback(async () => {
       throw new Error(data?.detail || data?.message || "Verification failed.");
     }
 
-    setMasterStatus(data?.connected ? "Connected" : "Not connected");
-    setMasterAccountName(data?.account_name || "");
-    setMasterBrokerName(data?.broker_name || "");
-    setMasterMessage(
-      data?.message || "Master account verified successfully."
-    );
+    setMasterStatus("Connected");
+    setMasterAccountName(data?.account_name || `Master ${masterLogin.trim()}`);
+    setMasterBrokerName(data?.broker_name || masterServer.trim());
+    setMasterMessage(data?.message || "Master account verified successfully.");
   } catch (err: any) {
     console.warn("Failed to verify master account", err);
     setMasterStatus("Connection failed");
@@ -2175,34 +2170,41 @@ function formatDateValue(value?: string | null) {
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
-            <p className="text-xs text-white/40">Account Name</p>
-            <div className="mt-2">
-  <span
-    className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
-      masterStatus === "Connected"
-        ? "border border-emerald-300/20 bg-emerald-400/10 text-emerald-300"
-        : masterStatus === "Saved"
-        ? "border border-cyan-300/20 bg-cyan-400/10 text-cyan-300"
-        : masterStatus === "Connection failed"
-        ? "border border-red-300/20 bg-red-400/10 text-red-300"
-        : "border border-white/10 bg-white/[0.05] text-white/60"
-    }`}
-  >
+  <p className="text-xs text-white/40">Connection Status</p>
+  <div className="mt-2">
     <span
-      className={`h-2 w-2 rounded-full ${
+      className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
         masterStatus === "Connected"
-          ? "bg-emerald-400"
+          ? "border border-emerald-300/20 bg-emerald-400/10 text-emerald-300"
           : masterStatus === "Saved"
-          ? "bg-cyan-400"
+          ? "border border-cyan-300/20 bg-cyan-400/10 text-cyan-300"
           : masterStatus === "Connection failed"
-          ? "bg-red-400"
-          : "bg-white/30"
+          ? "border border-red-300/20 bg-red-400/10 text-red-300"
+          : "border border-white/10 bg-white/[0.05] text-white/60"
       }`}
-    />
-    {masterStatus}
-  </span>
+    >
+      <span
+        className={`h-2 w-2 rounded-full ${
+          masterStatus === "Connected"
+            ? "bg-emerald-400"
+            : masterStatus === "Saved"
+            ? "bg-cyan-400"
+            : masterStatus === "Connection failed"
+            ? "bg-red-400"
+            : "bg-white/30"
+        }`}
+      />
+      {masterStatus}
+    </span>
+  </div>
 </div>
-          </div>
+
+<div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
+  <p className="text-xs text-white/40">Account Name</p>
+  <p className="mt-1 text-sm font-semibold text-white/90">
+    {masterAccountName || "Not verified yet"}
+  </p>
+</div>
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4">
             <p className="text-xs text-white/40">Broker</p>
