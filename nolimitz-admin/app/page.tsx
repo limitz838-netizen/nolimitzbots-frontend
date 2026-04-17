@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { Download, Menu, X, Smartphone, Apple, Zap, Shield, Users, MessageCircle } from "lucide-react";
 
+
 export default function HomePage() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showDownloadNote, setShowDownloadNote] = useState(false);
 
   const apkDownloadUrl = "/downloads/nolimitzbots.apk";
-
+  
   return (
     <main className="min-h-screen bg-[#020817] text-white">
       {/* Header */}
@@ -24,11 +26,15 @@ export default function HomePage() {
           </div>
 
           <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="md:hidden p-3 rounded-xl bg-white/5 border border-white/10"
-          >
-            {menuOpen ? <X size={24} /> : <Menu size={24} />}
-          </button>
+  onClick={() => {
+    setShowDownloadNote(true);
+    window.location.href = "/downloads/NolimitzBots.apk";
+  }}
+  className="inline-flex items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-cyan-400 to-blue-500 px-8 py-4 text-lg font-bold text-slate-950"
+>
+  <Smartphone size={24} />
+  Download Android App
+</button>
 
           <nav className="hidden md:flex items-center gap-8 text-sm">
             <a href="#how" className="hover:text-cyan-400 transition">How it Works</a>
@@ -36,14 +42,25 @@ export default function HomePage() {
           </nav>
 
           <a
-            href={apkDownloadUrl}
-            download="NolimitzBots.apk"
-            className="hidden md:flex items-center gap-2 px-6 py-3 rounded-2xl bg-gradient-to-r from-cyan-400 to-blue-500 text-black font-semibold hover:scale-105 transition"
-          >
-            <Smartphone size={20} />
-            Download Android
-          </a>
+  href="/downloads/NolimitzBots.apk"
+  download="NolimitzBots.apk"
+  className="inline-flex items-center justify-center gap-3 rounded-3xl bg-gradient-to-r from-cyan-400 to-blue-500 px-8 py-4 text-lg font-bold text-slate-950 shadow-[0_0_35px_rgba(34,211,238,0.24)] transition hover:scale-[1.02]"
+>
+  <Smartphone size={24} />
+  Download Android App
+</a>
         </div>
+
+        <div className="mt-5 mx-auto max-w-xl rounded-2xl border border-amber-300/20 bg-amber-400/10 px-5 py-4 text-left">
+  <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
+    Installation Notice
+  </p>
+  <p className="mt-2 text-sm leading-6 text-white/75">
+    After downloading, your phone may block installation.
+    Open the file and allow installation from unknown apps
+    (browser or file manager), then continue installing NolimitzBots.
+  </p>
+</div>
 
         {/* Mobile Menu */}
         {menuOpen && (
@@ -214,6 +231,24 @@ export default function HomePage() {
           </a>
         </div>
       </section>
+
+      {showDownloadNote && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur">
+    <div className="bg-[#0a1428] border border-white/10 rounded-3xl p-6 max-w-sm text-center">
+      <h3 className="text-xl font-bold mb-3">Installation Step</h3>
+      <p className="text-sm text-white/70 mb-4">
+        If installation is blocked, allow "Unknown Apps" in your phone settings
+        for your browser or file manager.
+      </p>
+      <button
+        onClick={() => setShowDownloadNote(false)}
+        className="px-6 py-2 bg-cyan-400 text-black rounded-xl font-semibold"
+      >
+        Got it
+      </button>
+    </div>
+  </div>
+)}
 
       {/* Footer */}
       <footer className="border-t border-white/10 py-12 text-center text-sm text-white/40">
