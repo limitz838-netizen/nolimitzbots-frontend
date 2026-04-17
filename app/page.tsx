@@ -234,14 +234,14 @@ export default function HomePage() {
 
       {/* WhatsApp floating */}
       <a
-        href="https://wa.me/message/CHJOXBZPYKEYG1"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-white shadow-[0_10px_25px_rgba(34,197,94,0.35)] transition hover:scale-110"
-        aria-label="WhatsApp Support"
-      >
-        <FaWhatsapp size={24} />
-      </a>
+  href="https://wa.me/message/CHJOXBZPYKEYG1"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="fixed bottom-5 right-5 z-50 inline-flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-white shadow-[0_10px_25px_rgba(34,197,94,0.35)] transition hover:scale-110"
+  aria-label="WhatsApp Support"
+>
+  <FaWhatsapp size={24} />
+</a>
     </main>
   );
 }
